@@ -16,6 +16,16 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 h1, h2, h3, .btp-title { font-family: 'Sora', sans-serif; }
 button { border-radius: 12px !important; font-weight: 600 !important; }
 
+/* Header bawaan Streamlit (bar hamburger-menu/Deploy) posisinya fixed di
+   paling atas viewport dan bisa NUTUPIN konten kustom kita (brand box,
+   tombol Kembali) kalau padding-top belum cukup jauh. Karena UI ini sudah
+   didesain custom penuh (bukan tampilan data-science standar Streamlit),
+   header bawaan itu disembunyikan total -- lebih bersih & konsisten
+   daripada cuma menambah padding untuk "mengakali" tinggi header yang
+   bisa beda-beda tiap versi Streamlit. */
+header[data-testid="stHeader"] { display: none !important; }
+div[data-testid="stToolbar"] { display: none !important; }
+
 .block-container { max-width: 720px; padding-top: 1.5rem; }
 
 .btp-brand {
@@ -131,9 +141,10 @@ if st.session_state.step == "home":
 # MULAI (ambil / unggah gambar)
 # =========================================================
 elif st.session_state.step == "mulai":
-    
-    if st.button("← Kembali"):
-        reset_and_go("home")
+    top_l, top_r = st.columns([1, 5])
+    with top_l:
+        if st.button("← Kembali"):
+            reset_and_go("home")
 
     st.html('<div class="btp-title" style="text-align:center;">Ambil Gambar Komposisi</div>')
 

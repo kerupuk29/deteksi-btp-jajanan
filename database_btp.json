@@ -1,0 +1,236 @@
+[
+  {
+    "nama_id": "Sirup Jagung Tinggi Fruktosa",
+    "nama_en": "High Fructose Corn Syrup",
+    "ins": "-",
+    "golongan": "Pemanis / Bahan Baku",
+    "keyword_pencarian": [
+      "sirup jagung tinggi fruktosa",
+      "high fructose corn syrup",
+      "hfcs",
+      "fruktosa"
+    ],
+    "keterangan_risiko": "Berisiko memicu obesitas dan diabetes tipe 2, serta menyebabkan stres oksidatif dan penumpukan lemak pada anak terlepas dari asupan kalori."
+  },
+  {
+    "nama_id": "Aspartam",
+    "nama_en": "Aspartame",
+    "ins": "951",
+    "golongan": "Pemanis Buatan",
+    "keyword_pencarian": [
+      "aspartam",
+      "aspartame",
+      "951",
+      "e951"
+    ],
+    "keterangan_risiko": "Dapat memicu intoleransi glukosa dengan mengubah mikrobiota usus, serta berisiko menyebabkan sakit kepala atau gejala kecemasan pada anak yang rentan."
+  },
+  {
+    "nama_id": "Pemanis Buatan Keras (Sakarin / Siklamat)",
+    "nama_en": "Saccharin / Cyclamate",
+    "ins": "952, 954",
+    "golongan": "Pemanis Buatan",
+    "keyword_pencarian": [
+      "sakarin",
+      "saccharin",
+      "siklamat",
+      "cyclamate",
+      "954",
+      "e954",
+      "952",
+      "e952"
+    ],
+    "keterangan_risiko": "Berdampak pada perubahan mikrobiota usus, mengubah kadar glukosa darah, dan secara signifikan berisiko memicu obesitas pada usia dini."
+  },
+  {
+    "nama_id": "Natrium Nitrit / Kalium Nitrat",
+    "nama_en": "Nitrates and Nitrites",
+    "ins": "250, 251, 252",
+    "golongan": "Pengawet",
+    "keyword_pencarian": [
+      "nitrat",
+      "nitrit",
+      "natrium nitrit",
+      "sodium nitrite",
+      "250",
+      "e250",
+      "kalium nitrat",
+      "252",
+      "e252"
+    ],
+    "keterangan_risiko": "Sering ditemukan pada daging olahan (sosis/nugget). Jika dikonsumsi berlebih, dapat mengganggu hormon tiroid dan berkontribusi pada risiko karsinogenik (pemicu kanker)."
+  },
+  {
+    "nama_id": "Natrium Benzoat",
+    "nama_en": "Sodium Benzoate",
+    "ins": "211",
+    "golongan": "Pengawet",
+    "keyword_pencarian": [
+      "natrium benzoat",
+      "sodium benzoate",
+      "benzoat",
+      "211",
+      "e211"
+    ],
+    "keterangan_risiko": "Dapat menyebabkan gangguan perilaku secara sistematis dan bersifat neurotoksik, terutama jika dikonsumsi bersamaan dengan pewarna sintetis."
+  },
+  {
+    "nama_id": "Asam Sorbat / Kalium Sorbat",
+    "nama_en": "Sorbic Acid / Potassium Sorbate",
+    "ins": "200, 202",
+    "golongan": "Pengawet",
+    "keyword_pencarian": [
+      "asam sorbat",
+      "sorbic acid",
+      "kalium sorbat",
+      "potassium sorbate",
+      "200",
+      "e200",
+      "202",
+      "e202"
+    ],
+    "keterangan_risiko": "Sering digunakan pada minuman kemasan dan keju. Konsumsi berlebih berpotensi memicu reaksi alergi dan iritasi pada anak yang sensitif."
+  },
+  {
+    "nama_id": "Kalsium Propionat",
+    "nama_en": "Calcium Propionate",
+    "ins": "282",
+    "golongan": "Pengawet",
+    "keyword_pencarian": [
+      "kalsium propionat",
+      "calcium propionate",
+      "propionat",
+      "282",
+      "e282"
+    ],
+    "keterangan_risiko": "Sangat umum pada roti kemasan. Beberapa studi mengaitkan akumulasi residunya dengan peningkatan iritabilitas perut dan sakit kepala pada anak."
+  },
+  {
+    "nama_id": "Lemak Trans",
+    "nama_en": "Trans Fats",
+    "ins": "-",
+    "golongan": "Lemak Modifikasi",
+    "keyword_pencarian": [
+      "lemak trans",
+      "trans fat",
+      "minyak terhidrogenasi",
+      "hydrogenated vegetable oil",
+      "partially hydrogenated"
+    ],
+    "keterangan_risiko": "Digunakan untuk tekstur makanan olahan, namun sangat berisiko meningkatkan ancaman penyakit jantung dan diabetes tipe 2 sejak usia dini."
+  },
+  {
+    "nama_id": "Pewarna Azo (Kuning FCF / Merah Allura / Tartrazin)",
+    "nama_en": "Azo Dyes",
+    "ins": "102, 110, 122, 124",
+    "golongan": "Pewarna Sintetis",
+    "keyword_pencarian": [
+      "tartrazin",
+      "tartrazine",
+      "kuning fcf",
+      "merah allura",
+      "azo",
+      "102",
+      "110",
+      "122",
+      "124",
+      "ci 19140"
+    ],
+    "keterangan_risiko": "Memiliki sifat neurotoksik dan terbukti memicu gangguan perilaku (hiperaktivitas) pada anak. Efeknya makin parah jika dikombinasikan dengan bahan pengawet."
+  },
+  {
+    "nama_id": "Biru Berlian FCF",
+    "nama_en": "Brilliant Blue FCF",
+    "ins": "133",
+    "golongan": "Pewarna Sintetis",
+    "keyword_pencarian": [
+      "biru berlian",
+      "brilliant blue",
+      "blue 1",
+      "133",
+      "e133",
+      "ci 42090"
+    ],
+    "keterangan_risiko": "Banyak ditemukan pada permen dan minuman anak. Dapat memicu reaksi alergi kulit dan asma pada individu yang rentan."
+  },
+  {
+    "nama_id": "Pengemulsi Sintetis",
+    "nama_en": "Artificial Emulsifiers",
+    "ins": "471, 472",
+    "golongan": "Pengemulsi",
+    "keyword_pencarian": [
+      "monogliserida",
+      "digliserida",
+      "471",
+      "e471",
+      "472",
+      "e472"
+    ],
+    "keterangan_risiko": "Dalam jangka panjang dapat memicu risiko penyakit kardiovaskular, serta memiliki efek merusak sel (sitotoksik) dan merusak DNA (genotoksik)."
+  },
+  {
+    "nama_id": "Mononatrium Glutamat",
+    "nama_en": "Monosodium Glutamate",
+    "ins": "621",
+    "golongan": "Penguat Rasa",
+    "keyword_pencarian": [
+      "mononatrium glutamat",
+      "monosodium glutamate",
+      "msg",
+      "penguat rasa",
+      "621",
+      "e621"
+    ],
+    "keterangan_risiko": "Dapat memicu penurunan fungsi kognitif otak, sindrom metabolik, serta reaksi alergi (Chinese Restaurant Syndrome) pada anak jika dikonsumsi secara terus-menerus."
+  },
+  {
+    "nama_id": "Dinatrium 5'-Ribonukleotida",
+    "nama_en": "Disodium 5'-Ribonucleotides",
+    "ins": "635",
+    "golongan": "Penguat Rasa",
+    "keyword_pencarian": [
+      "dinatrium 5-ribonukleotida",
+      "disodium 5-ribonucleotides",
+      "dinatrium inosinat",
+      "dinatrium guanilat",
+      "635",
+      "e635",
+      "631",
+      "e631",
+      "627",
+      "e627"
+    ],
+    "keterangan_risiko": "Sering dipasangkan dengan MSG di makanan ringan. Konsumsi berlebih dapat meningkatkan kadar asam urat dan memicu reaksi alergi kulit."
+  },
+  {
+    "nama_id": "Antioksidan Sintetis Minyak (BHA / BHT)",
+    "nama_en": "Butylated Hydroxyanisole / Butylated Hydroxytoluene",
+    "ins": "320, 321",
+    "golongan": "Antioksidan",
+    "keyword_pencarian": [
+      "bha",
+      "bht",
+      "butylated hydroxyanisole",
+      "butylated hydroxytoluene",
+      "320",
+      "e320",
+      "321",
+      "e321"
+    ],
+    "keterangan_risiko": "Sering memicu perubahan perilaku anak. Terindikasi sebagai pengganggu endokrin (hormon) dan memiliki potensi karsinogenik berdasarkan beberapa studi medis."
+  },
+  {
+    "nama_id": "Tersier Butilhidrokuinon",
+    "nama_en": "Tertiary Butylhydroquinone",
+    "ins": "319",
+    "golongan": "Antioksidan",
+    "keyword_pencarian": [
+      "tersier butilhidrokuinon",
+      "tertiary butylhydroquinone",
+      "tbhq",
+      "319",
+      "e319"
+    ],
+    "keterangan_risiko": "Berisiko menyebabkan mual dan memicu hiperaktivitas atau respon alergi pada sistem imun anak jika dikonsumsi di atas ambang batas."
+  }
+]

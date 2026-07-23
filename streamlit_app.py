@@ -131,10 +131,9 @@ if st.session_state.step == "home":
 # MULAI (ambil / unggah gambar)
 # =========================================================
 elif st.session_state.step == "mulai":
-    top_l, top_r = st.columns([2, 5])
-    with top_l:
-        if st.button("← Kembali"):
-            reset_and_go("home")
+    
+    if st.button("← Kembali"):
+        reset_and_go("home")
 
     st.html('<div class="btp-title" style="text-align:center;">Ambil Gambar Komposisi</div>')
 

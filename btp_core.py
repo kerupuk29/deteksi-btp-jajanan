@@ -1,47 +1,55 @@
-"""
-Logika inti deteksi BTP: preprocessing gambar, OCR ensemble, dan matching
-ke database. Dipindah dari app.py (versi Flask) TANPA mengubah algoritma
-sama sekali -- cuma dilepas dari lapisan web supaya bisa dipakai ulang di
-Streamlit (atau di mana pun) dan diproses full in-memory.
-
-PENTING: proses_gambar() di bagian bawah TIDAK PERNAH menulis file ke disk.
-Gambar didekode langsung dari bytes upload dengan cv2.imdecode, diproses
-di RAM, lalu hasilnya dibuang begitu request selesai. Ini yang bikin
-deployment gak pernah kepenuhan sama file upload numpuk.
-"""
-
-import re
-import json
-from collections import Counter
-import os
 import cv2
 import numpy as np
 import pytesseract
 from rapidfuzz import fuzz
+import json
+import re
+import math
+import os
+from collections import Counter
 
-# Di Windows, tesseract.exe biasanya gak otomatis kedeteksi di PATH.
-# Sesuaikan path ini kalau lokasi instalasi Tesseract di komputer lo beda.
+# --- PATH TESSERACT (WAJIB UNTUK WINDOWS) ---
+# Jika instalasi lu beda (misal di drive D atau AppData), ubah path ini
 if os.name == 'nt':
-    default_path = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-    if os.path.exists(default_path):
-        pytesseract.pytesseract.tesseract_cmd = default_path
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-# Ambang batas kualitas OCR. Kalau hasil di bawah ini, kita anggap fotonya
-# kurang layak dibaca (ketutup jari, terlalu silau, dll) daripada memaksa
-# mencocokkan teks sampah ke database BTP dan kasih hasil yang salah.
-MIN_GOOD_WORDS = 8
-MIN_AVG_CONFIDENCE = 45
+# --- IMPORT KAMUS BARU ---
+try:
+    from kamus_id_domain import SEMUA_KATA_DOMAIN
+except ImportError:
+    SEMUA_KATA_DOMAIN = set()
 
-# Minimal berapa dari sekian kandidat OCR (variasi threshold x PSM x
-# full-image/MSER-crop) yang harus sepakat menemukan suatu bahan, sebelum
-# bahan itu dianggap valid. Pengaman terhadap false positive dari 1
-# kandidat threshold yang kebetulan menghasilkan teks acak.
-MIN_VOTES = 2
+# --- AMBANG BATAS (THRESHOLDS) ---
+MIN_GOOD_WORDS = 15
+MIN_AVG_CONFIDENCE = 50.0
+MIN_RASIO_KAMUS = 0.277  # Ambang batas ketat dari hasil evaluasi
+MIN_VOTES = 1
 
-# Rasio minimal token (kata) yang panjangnya >= 4 huruf, dari total token,
-# yang harus dipunyai suatu kandidat teks SEBELUM dia boleh ikut voting.
-MIN_RASIO_TOKEN_BERMAKNA = 0.3
+def rasio_kata_valid_kamus(teks, min_panjang=3):
+    """Menghitung rasio kata yang ada di kamus untuk mendeteksi halusinasi OCR."""
+    tokens = [t.lower() for t in re.findall(r'[A-Za-z]+', teks) if len(t) >= min_panjang]
+    if not tokens:
+        return 0.0
+    if not SEMUA_KATA_DOMAIN: 
+        return 1.0 # Bypass jika kamus gagal dimuat
+    valid = [t for t in tokens if t in SEMUA_KATA_DOMAIN]
+    return len(valid) / len(tokens)
 
+def validasi_kualitas_teks(teks_fokus, nwords, avg_conf):
+    """Fungsi gatekeeper untuk menolak gambar yang gagal diekstrak OCR."""
+    if nwords < MIN_GOOD_WORDS or avg_conf < MIN_AVG_CONFIDENCE:
+        return False, "Kualitas teks terlalu rendah. Pastikan foto fokus dan tidak blur."
+        
+    if len(teks_fokus.strip()) < 15:
+        return False, "Teks yang terbaca terlalu pendek. Pastikan permukaan kemasan rata."
+
+    rasio_kamus = rasio_kata_valid_kamus(teks_fokus)
+    print(f"[DEBUG] Rasio Kamus: {rasio_kamus:.3f} (Min: {MIN_RASIO_KAMUS})") 
+    
+    if rasio_kamus < MIN_RASIO_KAMUS:
+        return False, "Banyak teks tidak bermakna (kemungkinan terdistorsi kelengkungan/cahaya). Silakan foto ulang pada area yang rata."
+
+    return True, "Aman diproses"
 
 def load_database(filepath):
     try:
@@ -51,10 +59,7 @@ def load_database(filepath):
         print(f"[ERROR] Gagal memuat database: {e}")
         return []
 
-
 def auto_rotate_image(img):
-    """Koreksi rotasi 90/180/270 pakai OSD Tesseract. Rotasi HANYA
-    diterapkan kalau orientation confidence-nya di atas ambang tertentu."""
     MIN_ORIENTATION_CONFIDENCE = 2.0
     try:
         osd = pytesseract.image_to_osd(img)
@@ -72,9 +77,8 @@ def auto_rotate_image(img):
         elif rotate_angle == 270:
             return cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE)
     except Exception as e:
-        print(f"[INFO] Skip rotasi otomatis: {e}")
+        pass
     return img
-
 
 def resize_max(img, max_dim=1800):
     h, w = img.shape[:2]
@@ -83,30 +87,23 @@ def resize_max(img, max_dim=1800):
         img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
     return img
 
-
 def illumination_normalize(gray, sigma=25):
     bg = cv2.GaussianBlur(gray, (0, 0), sigmaX=sigma)
     return cv2.divide(gray, bg, scale=255)
 
-
 def ocr_word_confidence(img, config):
-    data = pytesseract.image_to_data(img, lang='ind+eng', config=config,
-                                      output_type=pytesseract.Output.DICT)
-    good = [int(c) for c, w in zip(data['conf'], data['text'])
-            if str(c) != '-1' and int(c) > 40 and w.strip()]
+    data = pytesseract.image_to_data(img, lang='ind+eng', config=config, output_type=pytesseract.Output.DICT)
+    good = [int(c) for c, w in zip(data['conf'], data['text']) if str(c) != '-1' and int(c) > 40 and w.strip()]
     if not good:
         return 0, 0, 0
     avg_conf = sum(good) / len(good)
     score = avg_conf * len(good)
     return score, len(good), avg_conf
 
-
 def _ocr_on_variants(gray, label_prefix):
     norm = illumination_normalize(gray)
     candidates = {
-        'adaptive': cv2.adaptiveThreshold(
-            norm, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 15
-        ),
+        'adaptive': cv2.adaptiveThreshold(norm, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 15),
         'otsu': cv2.threshold(norm, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1],
     }
     best = {'score': -1, 'text': '', 'nwords': 0, 'avg_conf': 0, 'method': None}
@@ -116,10 +113,8 @@ def _ocr_on_variants(gray, label_prefix):
             score, nwords, avg_conf = ocr_word_confidence(th, config)
             if score > best['score']:
                 text = pytesseract.image_to_string(th, lang='ind+eng', config=config)
-                best.update(score=score, text=text, nwords=nwords, avg_conf=avg_conf,
-                            method=f'{label_prefix}{name}_psm{psm}')
+                best.update(score=score, text=text, nwords=nwords, avg_conf=avg_conf, method=f'{label_prefix}{name}_psm{psm}')
     return best
-
 
 def mser_text_region_crop(gray):
     mser = cv2.MSER_create()
@@ -151,7 +146,6 @@ def mser_text_region_crop(gray):
     x_min, x_max = max(0, int(x_min - pad)), min(w, int(x_max + pad))
     return gray[y_min:y_max, x_min:x_max]
 
-
 def smart_preprocess_and_ocr(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     best = _ocr_on_variants(gray, label_prefix='')
@@ -161,9 +155,7 @@ def smart_preprocess_and_ocr(img):
         fallback = _ocr_on_variants(crop, label_prefix='mser_')
         if fallback['score'] > best['score']:
             best = fallback
-
     return best
-
 
 def semua_kandidat_teks(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -176,9 +168,7 @@ def semua_kandidat_teks(img):
     for src_name, g in sumber:
         norm = illumination_normalize(g)
         variasi = {
-            'adaptive': cv2.adaptiveThreshold(
-                norm, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 15
-            ),
+            'adaptive': cv2.adaptiveThreshold(norm, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 15),
             'otsu': cv2.threshold(norm, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1],
         }
         for th_name, th in variasi.items():
@@ -187,50 +177,6 @@ def semua_kandidat_teks(img):
                 text = pytesseract.image_to_string(th, lang='ind+eng', config=config)
                 kandidat.append((f'{src_name}_{th_name}_psm{psm}', text))
     return kandidat
-
-
-def rasio_token_bermakna(teks):
-    tokens = re.findall(r'[A-Za-z]+', teks)
-    if not tokens:
-        return 0.0
-    token_panjang = [t for t in tokens if len(t) >= 4]
-    return len(token_panjang) / len(tokens)
-
-
-def cari_bahan_dengan_voting(img, database_btp, min_votes=MIN_VOTES):
-    semua_kandidat = semua_kandidat_teks(img)
-
-    kandidat_terpakai = []
-    for nama_kandidat, teks in semua_kandidat:
-        fokus = potong_teks_komposisi(teks)
-        if rasio_token_bermakna(fokus) < MIN_RASIO_TOKEN_BERMAKNA:
-            continue
-        kandidat_terpakai.append((nama_kandidat, fokus))
-
-    counter = Counter()
-    detail_sumber = {}
-    for nama_kandidat, fokus in kandidat_terpakai:
-        bersih = bersihkan_tanda_baca(fokus)
-        for item in cari_bahan_berbahaya(bersih, database_btp):
-            counter[item['nama_bahan']] += 1
-            detail_sumber.setdefault(item['nama_bahan'], []).append(nama_kandidat)
-
-    total_kandidat_terpakai = len(kandidat_terpakai) or 1
-    hasil_final = []
-    for item in database_btp:
-        nama = item['nama_id']
-        jumlah_voting = counter.get(nama, 0)
-        if jumlah_voting >= min_votes:
-            hasil_final.append({
-                'nama_bahan': nama,
-                'golongan': item['golongan'],
-                'ins': item['ins'],
-                'skor': round(jumlah_voting / total_kandidat_terpakai * 100, 1),
-                'metode': f'Konsensus {jumlah_voting}/{total_kandidat_terpakai} kandidat OCR (valid)',
-                'risiko': item['keterangan_risiko']
-            })
-    return hasil_final
-
 
 def potong_teks_komposisi(teks):
     tokens = list(re.finditer(r'[A-Za-z]+', teks))
@@ -246,10 +192,8 @@ def potong_teks_komposisi(teks):
                 best_idx = m.start()
     return teks[best_idx:] if best_idx is not None else teks
 
-
 def bersihkan_tanda_baca(teks):
     return re.sub(r'[^\w\s%]', ' ', teks)
-
 
 def cari_bahan_berbahaya(teks_fokus, database_btp):
     bahan_ditemukan = []
@@ -261,32 +205,20 @@ def cari_bahan_berbahaya(teks_fokus, database_btp):
         for keyword in item["keyword_pencarian"]:
             skor_token = fuzz.token_set_ratio(keyword.lower(), teks_fokus.lower())
             skor_partial = fuzz.partial_ratio(keyword.lower(), teks_fokus.lower())
-
             panjang_keyword = len(keyword)
 
             if panjang_keyword <= 4:
-                # REVISI: Perketat threshold mutlak buat BHA/BHT dll 
                 if skor_token > skor_partial:
-                    skor_saat_ini = skor_token
-                    threshold_saat_ini = 95
-                    metode_saat_ini = "Token Set"
+                    skor_saat_ini, threshold_saat_ini, metode_saat_ini = skor_token, 95, "Token Set"
                 else:
-                    skor_saat_ini = skor_partial
-                    threshold_saat_ini = 100  # Mutlak
-                    metode_saat_ini = "Partial (Strict)"
+                    skor_saat_ini, threshold_saat_ini, metode_saat_ini = skor_partial, 100, "Partial (Strict)"
             elif panjang_keyword <= 12:
-                skor_saat_ini = max(skor_token, skor_partial)
-                threshold_saat_ini = 85
-                metode_saat_ini = "Token Set" if skor_token > skor_partial else "Partial"
+                skor_saat_ini, threshold_saat_ini, metode_saat_ini = max(skor_token, skor_partial), 85, "Token Set" if skor_token > skor_partial else "Partial"
             else:
-                skor_saat_ini = max(skor_token, skor_partial)
-                threshold_saat_ini = 80
-                metode_saat_ini = "Token Set" if skor_token > skor_partial else "Partial"
+                skor_saat_ini, threshold_saat_ini, metode_saat_ini = max(skor_token, skor_partial), 80, "Token Set" if skor_token > skor_partial else "Partial"
 
             if skor_saat_ini > skor_tertinggi_item:
-                skor_tertinggi_item = skor_saat_ini
-                metode_tertinggi_item = metode_saat_ini
-                threshold_final = threshold_saat_ini
+                skor_tertinggi_item, metode_tertinggi_item, threshold_final = skor_saat_ini, metode_saat_ini, threshold_saat_ini
 
         if skor_tertinggi_item >= threshold_final:
             bahan_ditemukan.append({
@@ -299,55 +231,70 @@ def cari_bahan_berbahaya(teks_fokus, database_btp):
             })
     return bahan_ditemukan
 
+def cari_bahan_dengan_voting(img, database_btp, min_votes=MIN_VOTES):
+    semua_kandidat = semua_kandidat_teks(img)
+    kandidat_terpakai = []
+    
+    for nama_kandidat, teks in semua_kandidat:
+        fokus = potong_teks_komposisi(teks)
+        # Menggunakan metrik kamus baru untuk filter kandidat jelek
+        if rasio_kata_valid_kamus(fokus) < MIN_RASIO_KAMUS:
+            continue
+        kandidat_terpakai.append((nama_kandidat, fokus))
+
+    counter = Counter()
+    for nama_kandidat, fokus in kandidat_terpakai:
+        bersih = bersihkan_tanda_baca(fokus)
+        for item in cari_bahan_berbahaya(bersih, database_btp):
+            counter[item['nama_bahan']] += 1
+
+    total_kandidat_terpakai = len(kandidat_terpakai) or 1
+    hasil_final = []
+    for item in database_btp:
+        nama = item['nama_id']
+        jumlah_voting = counter.get(nama, 0)
+        if jumlah_voting >= min_votes:
+            hasil_final.append({
+                'nama_bahan': nama,
+                'golongan': item['golongan'],
+                'ins': item['ins'],
+                'skor': round(jumlah_voting / total_kandidat_terpakai * 100, 1),
+                'metode': f'Konsensus {jumlah_voting}/{total_kandidat_terpakai} kandidat OCR',
+                'risiko': item['keterangan_risiko']
+            })
+    return hasil_final
 
 def proses_gambar(image_bytes, database_btp):
-    """Titik masuk utama untuk Streamlit: terima bytes gambar (dari
-    st.camera_input / st.file_uploader), proses SELURUHNYA di memory
-    (tidak pernah ditulis ke disk), lalu balikin dict hasil dengan bentuk
-    yang sama seperti response JSON /scan di versi Flask.
-    """
     file_bytes = np.frombuffer(image_bytes, dtype=np.uint8)
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
     if img is None:
         return {
-            'success': False,
-            'low_quality': True,
-            'message': 'File gambar tidak dapat dibaca. Coba unggah ulang dengan format JPG/PNG/WEBP.',
+            'success': False, 'low_quality': True,
+            'message': 'File gambar tidak dapat dibaca. Coba unggah ulang format JPG/PNG/WEBP.',
             'teks_raw': '', 'teks_fokus': '', 'ocr_meta': {}, 'findings': []
         }
 
-    # 1. Turunkan resolusi ke ukuran kerja yang wajar buat Tesseract
     img = resize_max(img, 1800)
-
-    # 2. Rotasi otomatis (kelipatan 90 derajat) -- hasilnya tetap di RAM,
-    # tidak ditulis ke disk.
     img_fixed = auto_rotate_image(img)
-
-    # 3. Preprocessing + OCR ensemble, pilih kandidat terbaik otomatis
+    
     hasil_ocr = smart_preprocess_and_ocr(img_fixed)
     teks_raw = hasil_ocr['text']
+    teks_fokus = potong_teks_komposisi(teks_raw)
 
-    # 4. Kalau kualitas OCR terlalu rendah, jangan paksa cocokkan ke database
-    if hasil_ocr['nwords'] < MIN_GOOD_WORDS or hasil_ocr['avg_conf'] < MIN_AVG_CONFIDENCE:
+    # GATEKEEPER BERBASIS KAMUS DIEKSEKUSI DI SINI
+    is_valid, pesan = validasi_kualitas_teks(teks_fokus, hasil_ocr['nwords'], hasil_ocr['avg_conf'])
+    if not is_valid:
         return {
             'success': False,
             'low_quality': True,
-            'message': (
-                'Foto komposisi kurang jelas terbaca (kemungkinan tertutup jari, '
-                'silau/pantulan cahaya, atau blur). Coba foto ulang lebih dekat, '
-                'tanpa jari menutupi teks, dan hindari sudut yang memantulkan cahaya.'
-            ),
+            'message': pesan,
             'teks_raw': teks_raw,
-            'ocr_meta': {'metode': hasil_ocr['method'], 'jumlah_kata_valid': hasil_ocr['nwords'],
-                         'rata_rata_confidence': round(hasil_ocr['avg_conf'], 1)},
+            'teks_fokus': teks_fokus,
+            'ocr_meta': {'metode': hasil_ocr.get('method', ''), 'jumlah_kata_valid': hasil_ocr['nwords'], 'rata_rata_confidence': round(hasil_ocr['avg_conf'], 1)},
             'findings': []
         }
 
-    # 5. Potong fokus ke bagian komposisi
-    teks_fokus = potong_teks_komposisi(teks_raw)
-
-    # 6. Cocokkan ke database BTP pakai voting dari SEMUA kandidat OCR
     bahan_ditemukan = cari_bahan_dengan_voting(img_fixed, database_btp)
 
     return {
@@ -355,7 +302,6 @@ def proses_gambar(image_bytes, database_btp):
         'low_quality': False,
         'teks_raw': teks_raw,
         'teks_fokus': teks_fokus,
-        'ocr_meta': {'metode': hasil_ocr['method'], 'jumlah_kata_valid': hasil_ocr['nwords'],
-                     'rata_rata_confidence': round(hasil_ocr['avg_conf'], 1)},
+        'ocr_meta': {'metode': hasil_ocr.get('method', ''), 'jumlah_kata_valid': hasil_ocr['nwords'], 'rata_rata_confidence': round(hasil_ocr['avg_conf'], 1)},
         'findings': bahan_ditemukan
     }
